@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Member Dashboard - IITK Athletics</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+    </script>
+</head>
+<body>
+    <div class="theme-switch-wrapper">
+        <label class="theme-switch" for="checkbox">
+            <input type="checkbox" id="checkbox" />
+            <div class="slider round">
+                <i class="fas fa-sun"></i>
+                <i class="fas fa-moon"></i>
+            </div>
+        </label>
+    </div>
+
+    <div class="dashboard">
+        <div class="sidebar">
+            <h2>Member Portal</h2>
+            <p id="userDisplay" style="color: var(--text-muted); font-weight: 600; margin-bottom: 1.5rem;"></p>
+            <hr style="border: 0; border-top: 1px solid var(--input-border); margin-bottom: 1rem;">
+            <ul>
+                <li onclick="loadView('my_list')"><i class="fas fa-star" style="margin-right: 10px;"></i> Selected Tracker List</li>
+                <li onclick="loadView('all')"><i class="fas fa-search" style="margin-right: 10px;"></i> Find & Track Birthdays</li>
+                <li onclick="loadView('message')"><i class="fas fa-paper-plane" style="margin-right: 10px;"></i> Ping Birthday Manager</li>
+                <li onclick="logout()" style="color: var(--accent); margin-top: 3rem;"><i class="fas fa-sign-out-alt" style="margin-right: 10px;"></i> Logout</li>
+            </ul>
+        </div>
+
+        <div class="content" id="mainContent">
+            </div>
+    </div>
+
+    <script>
+        const token = localStorage.getItem('token');
+        if (!token) window.location.href = '/';
+        document.getElementById('userDisplay').innerText = '@' + localStorage.getItem('username');
+
+        // Theme Switch syncing
+        const toggleSwitch = document.querySelector('.theme-switch input[type="checkbox"]');
+        if (localStorage.getItem('theme') === 'dark') toggleSwitch.checked = true;
+        toggleSwitch.addEventListener('change', (e) => {
+            const next = e.target.checked ? 'dark' : 'light';
+            document.documentElement.setAttribute('data-theme', next);
+            localStorage.setItem('theme', next);
+        });
+
+        function logout() {
+            localStorage.clear();
+            window.location.href = '/';
+        }
+
+        async function loadView(view) {
+            const content = document.getElementById('mainContent');
+            content.innerHTML = '<div class="card"><h3><i class="fas fa-spinner fa-spin"></i> Initializing data index...</h3></div>';
+
+            if (view === 'my_list') {
+                const res = await fetch('/api/member/selected', { headers: {'Authorization': `Bearer ${token}`} });
+                const data = await res.json();
+                let html = '<div class="card"><h2>My Selected Reminders List</h2>';
+                if (data.length === 0) {
+                    html += '<p style="color:var(--text-muted)">Your active tracker index is empty. Navigate to the Directory to follow specific teammates.</p>';
+                } else {
+                    html += '<table><tr><th>Name</th><th>Batch</th><th>Celebration Date</th></tr>';
+                    data.forEach(b => {
+                        const cleanDate = new Date(b.dob).toLocaleDateString('en-US', { day: 'numeric', month: 'long' });
+                        html += `<tr><td><strong>${b.Name}</strong></td><td><span style="color:var(--primary);">${b.Batch}</span></td><td>${cleanDate}</td></tr>`;
+                    });
+                    html += '</table>';
+                }
+                content.innerHTML = html + '</div>';
+            }
+
+            else if (view === 'all') {
+                // Fetch both the full directory AND the user's selected list simultaneously
+                const [resAll, resSelected] = await Promise.all([
+                    fetch('/api/member/birthdays', { headers: {'Authorization': `Bearer ${token}`} }),
+                    fetch('/api/member/selected', { headers: {'Authorization': `Bearer ${token}`} })
+                ]);
+
+                const data = await resAll.json();
+                const selectedData = await resSelected.json();
+
+                // Create a simple array of IDs the user is already tracking
+                const trackedIds = selectedData.map(b => b.Sl_no);
+
+                let html = `
+                    <div class="card">
+                        <h2>Athletics Directory Index</h2>
+                        <div class="input-wrapper" style="margin: 1rem 0;">
+                            <i class="fas fa-search input-icon"></i>
+                            <input type="text" id="searchBar" placeholder="Filter roster profiles by name or batch labels..." onkeyup="filterTable()">
+                        </div>
+                        <table id="bdayTable">
+                            <tr><th>Name</th><th>Batch</th><th>Birthday</th><th>Action</th></tr>
+                `;
+                data.forEach(b => {
+                    const cleanDate = new Date(b.dob).toLocaleDateString('en-US', { day: 'numeric', month: 'long' });
+
+                    // Check if the current person is already in the user's tracking list
+                    const isTracked = trackedIds.includes(b.Sl_no);
+
+                    // If tracked, render a disabled gray button. Otherwise, render the active purple button.
+                    let buttonHtml = isTracked
+                        ? `<button disabled style="padding:6px 12px; font-size:13px; background:var(--text-muted); cursor:not-allowed;"><i class="fas fa-check"></i> Tracking</button>`
+                        : `<button id="trackBtn-${b.Sl_no}" onclick="selectPerson(${b.Sl_no})" style="padding:6px 12px; font-size:13px;"><i class="fas fa-bell"></i> Track</button>`;
+
+                    html += `<tr><td><strong>${b.Name}</strong></td><td><span style="color:var(--primary);">${b.Batch}</span></td><td>${cleanDate}</td>
+                             <td>${buttonHtml}</td></tr>`;
+                });
+                content.innerHTML = html + '</table></div>';
+            }
+
+            else if (view === 'message') {
+                content.innerHTML = `
+                    <div class="card">
+                        <h2>Send Notice to Birthday Manager</h2>
+                        <div class="login-form" style="gap:1rem; margin-top:1.5rem;">
+                            <div class="input-group">
+                                <label>Subject / Topic</label>
+                                <input type="text" id="msgTopic" placeholder="e.g., Update error on Y22 list profile">
+                            </div>
+                            <div class="input-group">
+                                <label>Detailed Description</label>
+                                <textarea id="msgDesc" placeholder="Enter instructions or notification text here..." rows="5" style="border-radius:12px; padding:15px;"></textarea>
+                            </div>
+                            <button onclick="sendMsg()" class="login-btn" style="width:100%;">Dispatch Note</button>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        function filterTable() {
+            const filter = document.getElementById("searchBar").value.toUpperCase();
+            const tr = document.getElementById("bdayTable").getElementsByTagName("tr");
+            for (let i = 1; i < tr.length; i++) {
+                const tdName = tr[i].getElementsByTagName("td")[0];
+                const tdBatch = tr[i].getElementsByTagName("td")[1];
+                if (tdName || tdBatch) {
+                    const txt = (tdName.textContent || '') + " " + (tdBatch.textContent || '');
+                    tr[i].style.display = txt.toUpperCase().indexOf(filter) > -1 ? "" : "none";
+                }
+            }
+        }
+
+        async function selectPerson(id) {
+            // Target the specific button clicked
+            const btn = document.getElementById(`trackBtn-${id}`);
+
+            // Instantly disable it and show a spinner so they can't click it twice
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>...';
+
+            const res = await fetch('/api/member/selected', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`},
+                body: JSON.stringify({Sl_no: id})
+            });
+
+            if(res.ok) {
+                // Change it permanently to the tracked state
+                btn.innerHTML = '<i class="fas fa-check"></i> Tracking';
+                btn.style.background = 'var(--text-muted)';
+                btn.style.cursor = 'not-allowed';
+            } else {
+                // If it fails, revert it back to normal
+                alert("Failed to track this teammate. Please try again.");
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-bell"></i> Track';
+            }
+        }
+
+        async function sendMsg() {
+            const topic = document.getElementById('msgTopic').value;
+            const description = document.getElementById('msgDesc').value;
+            if(!topic || !description) return alert("Please populate all message data modules.");
+
+            await fetch('/api/member/message', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`},
+                body: JSON.stringify({ topic, description })
+            });
+            alert('Notice transmitted successfully to manager dashboard inbox!');
+            loadView('message');
+        }
+
+        loadView('my_list');
+    </script>
+</body>
+</html>

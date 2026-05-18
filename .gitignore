@@ -1,0 +1,14 @@
+# Environments
+.venv/
+env/
+venv/
+
+# PyCharm specific
+.idea/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Mac OS specific
+.DS_Store

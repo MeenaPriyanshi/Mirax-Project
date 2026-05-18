@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register - IITK Athletics</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+    </script>
+</head>
+<body>
+    <div class="center-wrapper">
+        <div class="login-container">
+            <div class="login-panel">
+                <div class="login-header">
+                    <h2>Join the Team</h2>
+                    <p>Create your Member account</p>
+                </div>
+
+                <div id="step-details" class="login-form">
+                    <div class="input-group">
+                        <label>Username</label>
+                        <div class="input-wrapper">
+                            <i class="fas fa-user input-icon"></i>
+                            <input type="text" id="username" placeholder="Choose a username">
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <label>Email Address</label>
+                        <div class="input-wrapper">
+                            <i class="fas fa-envelope input-icon"></i>
+                            <input type="email" id="email" placeholder="Your actual email">
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <label>Password</label>
+                        <div class="input-wrapper">
+                            <i class="fas fa-lock input-icon"></i>
+                            <input type="password" id="password" placeholder="Create a password">
+                        </div>
+                    </div>
+                    <button onclick="requestRegistrationOTP()" id="sendOtpBtn" class="login-btn" style="width:100%; margin-top:10px;">Send Verification OTP</button>
+                </div>
+
+                <div id="step-verify" class="login-form" style="display: none;">
+                    <p style="color: var(--text-muted); text-align: center; font-size: 14px;">We sent a 6-digit code to your email.</p>
+                    <div class="input-group">
+                        <label>Enter OTP</label>
+                        <div class="input-wrapper">
+                            <i class="fas fa-key input-icon"></i>
+                            <input type="text" id="reg-otp" placeholder="123456">
+                        </div>
+                    </div>
+                    <button onclick="completeRegistration()" id="registerBtn" class="login-btn" style="width:100%; margin-top:10px;">Verify & Register</button>
+                </div>
+
+                <div class="login-footer" style="margin-top: 1.5rem;">
+                    <a href="/" class="footer-link"><i class="fas fa-arrow-left"></i> Back to Login</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let userEmail = '';
+
+        async function requestRegistrationOTP() {
+            const username = document.getElementById('username').value;
+            userEmail = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            if(!username || !userEmail || !password) return alert("Please fill out all fields.");
+
+            const btn = document.getElementById('sendOtpBtn');
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+            btn.style.pointerEvents = 'none';
+
+            const res = await fetch('/api/register/send-otp', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ username, email: userEmail, password })
+            });
+            const data = await res.json();
+
+            btn.innerHTML = 'Send Verification OTP';
+            btn.style.pointerEvents = 'auto';
+
+            if(res.ok) {
+                document.getElementById('step-details').style.display = 'none';
+                document.getElementById('step-verify').style.display = 'flex';
+                alert(data.message);
+            } else {
+                alert(data.error || "An error occurred.");
+            }
+        }
+
+        async function completeRegistration() {
+            const otp = document.getElementById('reg-otp').value;
+            if(!otp) return alert("Please enter the OTP.");
+
+            const btn = document.getElementById('registerBtn');
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verifying...';
+            btn.style.pointerEvents = 'none';
+
+            const res = await fetch('/api/register', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ email: userEmail, otp: otp })
+            });
+            const data = await res.json();
+
+            btn.innerHTML = 'Verify & Register';
+            btn.style.pointerEvents = 'auto';
+
+            if(res.ok) {
+                alert("Account created successfully! You can now log in.");
+                window.location.href = '/';
+            } else {
+                alert(data.error || "Invalid OTP.");
+            }
+        }
+    </script>
+</body>
+</html>
