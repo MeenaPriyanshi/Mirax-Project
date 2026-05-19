@@ -440,7 +440,7 @@ def daily_tasks():
 
 scheduler = BackgroundScheduler()
 # Run daily exactly at 12:00:02 AM
-scheduler.add_job(func=daily_tasks, trigger="cron", hour=0, minute=0, second=2)
+scheduler.add_job(func=daily_tasks, trigger="cron", hour=8, minute=2, second=2)
 scheduler.start()
 
 if __name__ == '__main__':
