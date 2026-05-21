@@ -30,12 +30,12 @@ reg_otp_store = {}
 # --- Database Connection ---
 def get_db_connection():
     return mysql.connector.connect(
-        host="localhost",
-        user="root",
-        password="Sujalm@24",  # Your MySQL password
-        database="birthday_management_system"
+        host=os.environ.get('DB_HOST'),
+        port=os.environ.get('DB_PORT'),
+        user=os.environ.get('DB_USER'),
+        password=os.environ.get('DB_PASSWORD'),
+        database='defaultdb'
     )
-
 
 # --- Authentication Middleware ---
 def token_required(f):
