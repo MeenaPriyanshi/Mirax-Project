@@ -31,10 +31,11 @@ reg_otp_store = {}
 def get_db_connection():
     return mysql.connector.connect(
         host=os.environ.get('DB_HOST'),
-        port=os.environ.get('DB_PORT'),
+        port=int(os.environ.get('DB_PORT')),  # Wrapped in int()
         user=os.environ.get('DB_USER'),
         password=os.environ.get('DB_PASSWORD'),
-        database='defaultdb'
+        database='defaultdb',
+        ssl_disabled=False  # Aiven requires SSL
     )
 
 # --- Authentication Middleware ---
